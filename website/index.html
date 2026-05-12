@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoLang — Robotics DSL</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= NAV ================= -->
+<nav class="nav">
+  <div class="brand"><span>AutoLang</span></div>
+  <div class="links">
+    <a href="#try">Try it</a>
+    <a href="#docs">Docs</a>
+    <a href="#syntax">Syntax</a>
+    <a href="#examples">Examples</a>
+    <a href="https://github.com/musfique-anam/autolang-compiler" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <h1>AutoLang</h1>
+  <p class="tag">
+    A robotics-oriented programming language.<br>
+    Write human-readable commands — get optimized C++ code.
+  </p>
+  <div class="cta">
+    <a href="#try" class="btn primary">▶ Try Online</a>
+    <a href="#docs" class="btn ghost">📖 Read Docs</a>
+  </div>
+  <pre class="hero-code">
+START
+MOVE FORWARD 10
+TURN LEFT 90
+LED BLINK 3
+END
+  </pre>
+</header>
+
+<!-- ================= PLAYGROUND ================= -->
+<section id="try" class="playground">
+  <h2>Try AutoLang</h2>
+  <p class="sub">Write code on the left. Press <b>Run</b>. See the compiled C++ on the right.</p>
+
+  <div class="editor-grid">
+    <div class="card">
+        <div class="card-head">
+        <span>main.ato</span>
+        <button id="run" class="btn primary small">▶ Run</button>
+        </div>
+      <textarea id="code" spellcheck="false">START
+MOVE FORWARD 10
+TURN LEFT 90
+LED BLINK 3
+WAIT 2
+END</textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>Output</span>
+        <div class="tabs">
+          <button class="tab active" data-tab="cpp">C++</button>
+          <button class="tab" data-tab="tokens">Tokens</button>
+          <button class="tab" data-tab="ir">IR</button>
+        </div>
+      </div>
+      <pre id="out-cpp"    class="out active"></pre>
+      <pre id="out-tokens" class="out"></pre>
+      <pre id="out-ir"     class="out"></pre>
+      <pre id="out-err"    class="out err"></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DOCS ================= -->
+<section id="docs" class="docs">
+  <h2>Documentation</h2>
+
+  <div class="doc-grid">
+    <article>
+      <h3>What is AutoLang?</h3>
+      <p>AutoLang is a domain-specific language (DSL) for robotics. It turns
+         simple commands like <code>MOVE FORWARD 10</code> into standard C++
+         that runs on desktops or embedded targets such as ESP32 and STM32.</p>
+    </article>
+
+    <article>
+      <h3>Program Structure</h3>
+      <p>Every program is wrapped in <code>START</code> and <code>END</code>.
+         One command per line. Keywords are case-insensitive.</p>
+      <pre>START
+  &lt;instructions&gt;
+END</pre>
+    </article>
+
+    <article>
+      <h3>Compiler Pipeline</h3>
+      <ol>
+        <li>Lexer → tokens</li>
+        <li>Parser → AST</li>
+        <li>Semantic analyzer</li>
+        <li>IR generator</li>
+        <li>Optimizer</li>
+        <li>C++ code generator</li>
+      </ol>
+    </article>
+
+    <article>
+      <h3>Error Handling</h3>
+      <p>Meaningful messages tell you the line and suggest fixes:</p>
+      <pre>Line 3: Unexpected token 'FORWAD'
+Hint: Did you mean 'FORWARD'?</pre>
+    </article>
+  </div>
+</section>
+
+<!-- ================= SYNTAX ================= -->
+<section id="syntax" class="syntax">
+  <h2>Language Syntax</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Syntax</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>Program</td><td>START … END</td><td>START<br>END</td></tr>
+      <tr><td>Move</td><td>MOVE FORWARD &lt;n&gt;</td><td>MOVE FORWARD 10</td></tr>
+      <tr><td>Move</td><td>MOVE BACKWARD &lt;n&gt;</td><td>MOVE BACKWARD 5</td></tr>
+      <tr><td>Turn</td><td>TURN LEFT &lt;deg&gt;</td><td>TURN LEFT 90</td></tr>
+      <tr><td>Turn</td><td>TURN RIGHT &lt;deg&gt;</td><td>TURN RIGHT 45</td></tr>
+      <tr><td>LED</td><td>LED ON / OFF / BLINK &lt;n&gt;</td><td>LED BLINK 3</td></tr>
+      <tr><td>Wait</td><td>WAIT &lt;sec&gt;</td><td>WAIT 2</td></tr>
+      <tr><td>Condition</td><td>IF OBSTACLE THEN STOP</td><td>IF OBSTACLE THEN STOP</td></tr>
+      <tr><td>Task</td><td>TASK name … RUN name</td><td>TASK scan<br>  TURN LEFT 90<br>RUN scan</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================= EXAMPLES ================= -->
+<section id="examples" class="examples">
+  <h2>Example Programs</h2>
+  <div class="ex-grid">
+    <div class="card ex">
+      <div class="card-head"><span>Blink</span><button class="btn small try-ex">Load</button></div>
+      <pre>START
+LED ON
+WAIT 1
+LED OFF
+LED BLINK 5
+END</pre>
+    </div>
+    <div class="card ex">
+      <div class="card-head"><span>Patrol Square</span><button class="btn small try-ex">Load</button></div>
+      <pre>START
+MOVE FORWARD 20
+TURN RIGHT 90
+MOVE FORWARD 20
+TURN RIGHT 90
+MOVE FORWARD 20
+TURN RIGHT 90
+MOVE FORWARD 20
+END</pre>
+    </div>
+    <div class="card ex">
+      <div class="card-head"><span>Obstacle Aware</span><button class="btn small try-ex">Load</button></div>
+      <pre>START
+MOVE FORWARD 50
+IF OBSTACLE THEN STOP
+IF SENSOR DETECT THEN TURN LEFT 90
+END</pre>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-bottom">
+    <p>© 2026 <strong>Musfique Anam</strong> — AutoLang. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
