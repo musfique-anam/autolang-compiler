@@ -1,23 +1,4 @@
 # compiler/main.py
-# ─────────────────────────────────────────────────────────────
-#  AutoLang Compiler — CLI entrypoint
-#
-#  Pipeline:
-#     Lexer → Parser → Semantic → IR → Optimizer → C++ Generator
-#
-#  Each compile produces its OWN sub-folder inside ./output/
-#     output/
-#     ├── build_log.txt
-#     ├── 001_hello/
-#     │   ├── hello.cpp
-#     │   ├── hello.tokens.txt
-#     │   ├── hello.ast.json
-#     │   ├── hello.ir.txt
-#     │   └── meta.txt
-#     └── 002_patrol/
-#         └── ...
-# ─────────────────────────────────────────────────────────────
-
 import sys
 import os
 import json
@@ -31,7 +12,6 @@ from .optimizer import optimize
 from .generator import generate
 from .errors import AutoLangError
 
-
 # ---------- Configuration ----------
 ALLOWED_EXT = ".ato"
 BUILD_DIR   = "output"
@@ -41,11 +21,8 @@ LOG_FILE    = os.path.join(BUILD_DIR, "build_log.txt")
 # =============================================================
 #  Core compile routine
 # =============================================================
-def compile_source(src: str) -> dict:
-    """Run the full AutoLang pipeline on a source string.
-
-    Returns a dict with tokens, ast, ir, cpp, and any errors.
-    """
+def compile_source(src: str, hardware_mode: bool = False) -> dict:
+    """Run the full AutoLang pipeline on a source string."""
     result = {
         "ok": True,
         "tokens": [],
@@ -66,13 +43,20 @@ def compile_source(src: str) -> dict:
         ir = optimize(lower(ast))
         result["ir"] = ir.to_list()
 
-        result["cpp"] = generate(ir)
+        # Choose the target generator
+        if hardware_mode:
+            try:
+                from .generator_arduino import generate_arduino
+                result["cpp"] = generate_arduino(ir)
+            except ImportError:
+                raise AutoLangError("generator_arduino.py not found. Please create it to use --hardware flag.")
+        else:
+            result["cpp"] = generate(ir)
 
     except AutoLangError as e:
         result["ok"] = False
         result["errors"].append(str(e))
     except Exception as e:
-        # Catch-all so the CLI never crashes on unexpected bugs
         result["ok"] = False
         result["errors"].append(f"Internal error: {e}")
 
@@ -83,7 +67,6 @@ def compile_source(src: str) -> dict:
 #  Output helpers
 # =============================================================
 def _next_rank() -> str:
-    """Return next 3-digit rank (e.g. '001') based on folders in output/."""
     os.makedirs(BUILD_DIR, exist_ok=True)
     existing = [
         name for name in os.listdir(BUILD_DIR)
@@ -94,36 +77,40 @@ def _next_rank() -> str:
     return f"{max(ranks) + 1:03d}"
 
 
-def _write_outputs(src_path: str, r: dict):
-    """Each compile gets its OWN sub-folder inside output/."""
+def _write_outputs(src_path: str, r: dict, hardware_mode: bool):
     os.makedirs(BUILD_DIR, exist_ok=True)
 
     rank      = _next_rank()
     stamp     = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     base_name = os.path.splitext(os.path.basename(src_path))[0]
 
-    # Per-run sub-folder, e.g. output/001_hello/
-    run_dir = os.path.join(BUILD_DIR, f"{rank}_{base_name}")
+    # Arduino CLI requires the .ino file to have the exact same name as its folder.
+    sketch_name = f"{rank}_{base_name}"
+    
+    # Per-run sub-folder
+    run_dir = os.path.join(BUILD_DIR, sketch_name)
     os.makedirs(run_dir, exist_ok=True)
 
+    out_ext = ".ino" if hardware_mode else ".cpp"
+    
     paths = {
-        "cpp":    os.path.join(run_dir, f"{base_name}.cpp"),
-        "tokens": os.path.join(run_dir, f"{base_name}.tokens.txt"),
-        "ast":    os.path.join(run_dir, f"{base_name}.ast.json"),
-        "ir":     os.path.join(run_dir, f"{base_name}.ir.txt"),
+        "code":   os.path.join(run_dir, f"{sketch_name}{out_ext}"),
+        "tokens": os.path.join(run_dir, f"{sketch_name}.tokens.txt"),
+        "ast":    os.path.join(run_dir, f"{sketch_name}.ast.json"),
+        "ir":     os.path.join(run_dir, f"{sketch_name}.ir.txt"),
         "meta":   os.path.join(run_dir, "meta.txt"),
     }
 
-    # 1) Generated C++
-    with open(paths["cpp"], "w") as f:
+    # 1) Generated C++ / INO
+    with open(paths["code"], "w") as f:
         f.write(r["cpp"])
 
-    # 2) Token stream (human-readable)
+    # 2) Token stream 
     with open(paths["tokens"], "w") as f:
         for t in r["tokens"]:
             f.write(f"{t['type']:<8} {str(t['value']):<15} line={t['line']}\n")
 
-    # 3) AST (pretty JSON)
+    # 3) AST 
     with open(paths["ast"], "w") as f:
         json.dump(r["ast"], f, indent=2)
 
@@ -139,11 +126,10 @@ def _write_outputs(src_path: str, r: dict):
         f.write("-----------------------\n")
         f.write(f"Rank      : {rank}\n")
         f.write(f"Source    : {src_path}\n")
+        f.write(f"Target    : {'Arduino Hardware' if hardware_mode else 'Simulation'}\n")
         f.write(f"Timestamp : {stamp}\n")
-        f.write(f"Tokens    : {len(r['tokens'])}\n")
-        f.write(f"IR ops    : {len(r['ir'])}\n")
 
-    # 6) Global build log (append)
+    # 6) Global build log 
     with open(LOG_FILE, "a") as f:
         f.write(f"[{rank}] {stamp}  src={src_path}  ->  {run_dir}\n")
 
@@ -157,44 +143,44 @@ def _print_usage():
     print("AutoLang Compiler")
     print("-----------------")
     print("Usage:")
-    print(f"  python -m compiler.main <file{ALLOWED_EXT}> [file2{ALLOWED_EXT} ...]")
+    print(f"  python -m compiler.main [--hardware] <file{ALLOWED_EXT}> [file2{ALLOWED_EXT} ...]")
     print()
     print("Options:")
+    print("  --hardware     Generate Arduino .ino and upload via arduino-cli")
     print("  -h, --help     Show this help message")
-    print()
-    print("Examples:")
-    print(f"  python -m compiler.main examples/hello{ALLOWED_EXT}")
-    print(f"  python -m compiler.main examples/hello{ALLOWED_EXT} examples/patrol{ALLOWED_EXT}")
-    print()
-    print(f"Outputs are written to ./{BUILD_DIR}/ with one sub-folder per compile.")
 
 
 def main():
-    # Handle help / empty args
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    if len(sys.argv) < 2 or "-h" in sys.argv or "--help" in sys.argv:
         _print_usage()
         sys.exit(0 if len(sys.argv) >= 2 else 1)
 
-    src_files = sys.argv[1:]
-    print(f"🛠  AutoLang — Compiling {len(src_files)} file(s) → ./{BUILD_DIR}/\n")
+    # Check for the hardware flag
+    hardware_mode = "--hardware" in sys.argv
+    src_files = [arg for arg in sys.argv[1:] if arg != "--hardware"]
+
+    if not src_files:
+        print("⚠  No source files provided.")
+        sys.exit(1)
+
+    mode_text = "HARDWARE (Arduino)" if hardware_mode else "SIMULATION (C++)"
+    print(f"🛠  AutoLang — Mode: {mode_text}")
+    print(f"   Compiling {len(src_files)} file(s) → ./{BUILD_DIR}/\n")
 
     success = 0
     failed  = 0
 
     for src_path in src_files:
-        # Extension check
         if not src_path.endswith(ALLOWED_EXT):
             print(f"⚠  Skipped: '{src_path}' — expected a {ALLOWED_EXT} file")
             failed += 1
             continue
 
-        # Existence check
         if not os.path.exists(src_path):
             print(f"⚠  Skipped (not found): {src_path}")
             failed += 1
             continue
 
-        # Read source
         try:
             with open(src_path, "r") as f:
                 src = f.read()
@@ -203,8 +189,8 @@ def main():
             failed += 1
             continue
 
-        # Compile
-        r = compile_source(src)
+        # Pass the hardware flag to the compiler routine
+        r = compile_source(src, hardware_mode)
 
         if not r["ok"]:
             print(f"❌ {src_path}")
@@ -214,22 +200,31 @@ def main():
             failed += 1
             continue
 
-        # Write artifacts into its own sub-folder
-        rank, run_dir, paths = _write_outputs(src_path, r)
+        # Write artifacts 
+        rank, run_dir, paths = _write_outputs(src_path, r, hardware_mode)
         print(f"✅ [{rank}] {src_path}  →  {run_dir}/")
-        print(f"     tokens : {len(r['tokens'])}")
-        print(f"     ir ops : {len(r['ir'])}")
         for k, p in paths.items():
             print(f"     {k:<6} → {p}")
         print()
+        
+        # If we are in hardware mode, trigger the uploader
+        if hardware_mode:
+            try:
+                # Add root to sys path so 'hardware' module can be found
+                sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+                from hardware.uploader import upload_to_arduino
+                
+                print("🚀 Initiating Hardware Upload Sequence...")
+                upload_success = upload_to_arduino(paths["code"])
+                if not upload_success:
+                    failed += 1
+            except ImportError:
+                print("⚠  Hardware uploader module (hardware/uploader.py) not found. Skipping physical upload.")
+                
         success += 1
 
-    # Summary
     print("─" * 52)
     print(f"Done. {success} succeeded, {failed} failed/skipped.")
-    print(f"📒 Log: {LOG_FILE}")
-
-    # Non-zero exit if anything failed (useful for CI / VS Code tasks)
     sys.exit(0 if failed == 0 else 1)
 
 

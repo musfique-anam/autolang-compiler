@@ -60,8 +60,10 @@ class Parser:
         handler = {
             "MOVE": self._move, "TURN": self._turn, "LED": self._led,
             "WAIT": self._wait, "IF": self._if, "STOP": self._stop,
-            "RUN": self._run,
+            "RUN": self._run, "BUZZER": self._buzzer, "SERVO": self._servo,
+            "LOOP": self._loop, "BREAK": self._break
         }.get(t.value)
+        
         if not handler:
             raise SyntaxError_(f"Unknown command '{t.value}'", line=t.line)
         node = handler()
@@ -94,6 +96,22 @@ class Parser:
             return Node("Led", mode=mode, line=line)
         raise SyntaxError_(f"Expected ON/OFF/BLINK, got {mode}", line=line)
 
+    def _buzzer(self):
+        line = self.eat().line
+        mode = self.expect("KEYWORD").value
+        if mode == "BEEP":
+            times = self.expect("NUMBER").value
+            return Node("Buzzer", mode="BEEP", times=times, line=line)
+        if mode in ("ON", "OFF"):
+            return Node("Buzzer", mode=mode, line=line)
+        raise SyntaxError_(f"Expected ON/OFF/BEEP, got {mode}", line=line)
+
+    def _servo(self):
+        line = self.eat().line
+        self.expect("KEYWORD", "MOVE")
+        angle = self.expect("NUMBER").value
+        return Node("Servo", angle=angle, line=line)
+
     def _wait(self):
         line = self.eat().line
         s = self.expect("NUMBER").value
@@ -102,6 +120,25 @@ class Parser:
     def _stop(self):
         line = self.eat().line
         return Node("Stop", line=line)
+
+    def _loop(self):
+        line = self.eat().line
+        if self.peek().type == "NEWLINE": self.eat()
+        body = []
+        while True:
+            self.skip_newlines()
+            t = self.peek()
+            if t.type == "KEYWORD" and t.value == "ENDLOOP":
+                self.eat()
+                break
+            if t.type == "EOF" or (t.type == "KEYWORD" and t.value == "END"):
+                raise SyntaxError_("Missing ENDLOOP", line=line)
+            body.append(self._stmt())
+        return Node("Loop", body=body, line=line)
+
+    def _break(self):
+        line = self.eat().line
+        return Node("Break", line=line)
 
     def _if(self):
         line = self.eat().line
@@ -114,8 +151,12 @@ class Parser:
 
     def _stmt_inline(self):
         t = self.peek()
-        handler = {"MOVE": self._move, "TURN": self._turn, "LED": self._led,
-                   "WAIT": self._wait, "STOP": self._stop, "RUN": self._run}.get(t.value)
+        handler = {
+            "MOVE": self._move, "TURN": self._turn, "LED": self._led,
+            "WAIT": self._wait, "STOP": self._stop, "RUN": self._run,
+            "BUZZER": self._buzzer, "SERVO": self._servo, "BREAK": self._break
+        }.get(t.value)
+        
         if not handler:
             raise SyntaxError_(f"Invalid action after THEN: {t.value}", line=t.line)
         return handler()
@@ -128,7 +169,6 @@ class Parser:
     def _task(self):
         line = self.eat().line
         name = self.expect("IDENT").value
-        # Optional ':' not required by our lexer; accept IDENT then newline
         self.expect("NEWLINE")
         body = []
         while True:

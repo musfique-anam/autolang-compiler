@@ -3,11 +3,11 @@ from .errors import LexError
 KEYWORDS = {
     "START", "END", "MOVE", "TURN", "LED", "WAIT", "IF", "THEN",
     "STOP", "RUN", "TASK", "FORWARD", "BACKWARD", "LEFT", "RIGHT",
-    "ON", "OFF", "BLINK", "OBSTACLE", "DETECT", "SENSOR"
+    "ON", "OFF", "BLINK", "OBSTACLE", "DETECT", "SENSOR",
+    "BUZZER", "BEEP", "SERVO", "LOOP", "ENDLOOP", "BREAK"
 }
 
 def _suggest(word):
-    # Simple Levenshtein-1 suggestion for "Did you mean ...?"
     best = None
     best_d = 99
     for k in KEYWORDS:

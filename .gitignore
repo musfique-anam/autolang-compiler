@@ -1,0 +1,47 @@
+# --- Build Artifacts & Output Directories ---
+# Ignore all generated code, compiled sketches, and local binaries
+output/
+build/
+dist/
+bin/
+
+# --- Python ---
+# Ignore cache, compiled bytecode, and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+.pytest_cache/
+.coverage
+
+# --- C / C++ / Embedded Hardware ---
+# Ignore object files, executables, and firmware binaries
+*.o
+*.obj
+*.out
+*.elf
+*.hex
+*.a
+
+# --- OS & Environment Temp Files ---
+# Ignore Linux swap files, backup files, and system caches
+*~
+*.swp
+*.swo
+.directory
+.DS_Store
+Thumbs.db
+
+# --- IDEs & Editors ---
+# Ignore local workspace configurations
+.vscode/
+.idea/
+*.suo
+*.sln
+
+# --- Logs ---
+# Ignore dynamically generated log files
+*.log
