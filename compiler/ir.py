@@ -14,15 +14,15 @@ def lower(ast):
     """Lower an AST into an IR object. Top-level function — must be importable."""
     ir = IR()
 
-    # 1. Lower all task bodies first
+    # Lower all task bodies first
     for t in ast.tasks:
         ir.tasks[t.name] = [_lower_stmt(s) for s in t.body]
 
-    # 2. Lower main program body
+    # Lower main program body
     for s in ast.body:
         ir.instructions.append(_lower_stmt(s))
 
-    # 3. Expand RUN <task> inline
+    # Expand RUN <task> inline
     expanded = []
     for ins in ir.instructions:
         if ins[0] == "RUN":

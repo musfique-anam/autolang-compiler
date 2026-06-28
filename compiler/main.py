@@ -1,4 +1,3 @@
-# compiler/main.py
 import sys
 import os
 import json
@@ -18,9 +17,8 @@ BUILD_DIR   = "output"
 LOG_FILE    = os.path.join(BUILD_DIR, "build_log.txt")
 
 
-# =============================================================
 #  Core compile routine
-# =============================================================
+
 def compile_source(src: str, hardware_mode: bool = False) -> dict:
     """Run the full AutoLang pipeline on a source string."""
     result = {
@@ -63,9 +61,9 @@ def compile_source(src: str, hardware_mode: bool = False) -> dict:
     return result
 
 
-# =============================================================
+
 #  Output helpers
-# =============================================================
+
 def _next_rank() -> str:
     os.makedirs(BUILD_DIR, exist_ok=True)
     existing = [
